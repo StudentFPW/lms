@@ -1,14 +1,18 @@
-# from django.db.models.signals import post_save
-# from django.dispatch import receiver
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+from django.contrib.auth.models import Group
+from django.contrib.auth.models import Permission
+
+from .models import Product
 
 
-# @receiver(post_save, sender=Product)
-# def distribute_users_to_groups(sender, instance, created, **kwargs):
-#     if created:
-#         product = instance.product
-#         if product.start_date <= timezone.now():
-#             # распределение пользователей в группы при начале продукта
-#             distribute_users(product)
-#         else:
-#             # перераспределение групп для всех продуктов, чтобы обеспечить балансировку
-#             balance_groups()
+@receiver(post_save, sender=Product)
+def create_product_group(sender, instance, created, **kwargs):
+    if created:
+        group_name = instance.name.lower().replace(" ", "_")
+        group, created = Group.objects.get_or_create(name=group_name)
+
+        permission = Permission.objects.get(codename="view_product")
+        group.permissions.add(permission)
+        group.save()

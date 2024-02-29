@@ -1,25 +1,49 @@
+from rest_framework.viewsets import ModelViewSet
 from rest_framework import generics
-from .models import Product, Lesson
-from .serializers import ProductSerializer, LessonSerializer, ProductDetailSerializer
+from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth.models import User
+from django.contrib.auth.models import Group as NativeGroup
+
+from .models import Product, Lesson, Group, GroupMembership
+from .serializers import (
+    ProductWithStatsSerializer,
+    LessonSerializer,
+    GroupSerializer,
+    GroupMembershipSerializer,
+)
 
 
-class ProductListAPIView(generics.ListAPIView):
+class ProductAPIView(ModelViewSet):
     queryset = Product.objects.all()
-    serializer_class = ProductSerializer
+    serializer_class = ProductWithStatsSerializer
 
 
-class ProductListWithDetailsAPIView(generics.ListAPIView):
-    queryset = Product.objects.all()
-    serializer_class = ProductDetailSerializer
-
-
-class LessonListAPIView(generics.ListAPIView):
+class LessonAPIView(ModelViewSet):
+    queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
 
+
+class LessonListByProduct(generics.ListAPIView):
+    serializer_class = LessonSerializer
+    permission_classes = (IsAuthenticated,)
+
     def get_queryset(self):
-        user = self.request.user
         product_id = self.kwargs["product_id"]
-        # Получаем список уроков по конкретному продукту, к которому пользователь имеет доступ
-        return Lesson.objects.filter(
-            product_id=product_id, product__product_access__user=user
-        )
+        product = Product.objects.get(id=product_id)
+
+        user = User.objects.get(username=self.request.user)
+        group = NativeGroup.objects.get(name=product.name.lower().replace(" ", "_"))
+
+        if group in user.groups.all():
+            return Lesson.objects.filter(product=product_id)
+        return Lesson.objects.none()
+
+
+class GroupAPIView(ModelViewSet):
+    queryset = Group.objects.all()
+    serializer_class = GroupSerializer
+
+
+class GroupMembershipAPIView(ModelViewSet):
+    queryset = GroupMembership.objects.all()
+    serializer_class = GroupMembershipSerializer

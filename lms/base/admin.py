@@ -1,9 +1,8 @@
-# from django.contrib import admin
-# from .models import *
+from django.contrib import admin
 
-# admin.site.register()
-# admin.site.register()
-# admin.site.register()
-# admin.site.register()
-# admin.site.register()
-# admin.site.register()
+from .models import *
+
+admin.site.register(Product)
+admin.site.register(Lesson)
+admin.site.register(Group)
+admin.site.register(GroupMembership)

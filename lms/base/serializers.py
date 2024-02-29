@@ -1,11 +1,53 @@
 from rest_framework import serializers
-from .models import Product, Lesson, Group
+from django.contrib.auth.models import User
+
+from .models import Product, Lesson, Group, GroupMembership
 
 
-class ProductSerializer(serializers.ModelSerializer):
+class ProductWithStatsSerializer(serializers.ModelSerializer):
+    num_students = serializers.SerializerMethodField()
+    group_fill_percentage = serializers.SerializerMethodField()
+    purchase_percentage = serializers.SerializerMethodField()
+    num_lessons = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
-        fields = ("id", "creator", "name", "start_date", "cost")
+        fields = [
+            "id",
+            "name",
+            "start_date",
+            "cost",
+            "num_students",
+            "num_lessons",
+            "group_fill_percentage",
+            "purchase_percentage",
+        ]
+
+    def get_num_lessons(self, obj):
+        return Lesson.objects.filter(product=obj).count()
+
+    def get_num_students(self, obj):
+        return GroupMembership.objects.filter(group__product=obj).count()
+
+    def get_group_fill_percentage(self, obj):
+        total_fill_percentage = 0
+        groups = obj.group_set.all()
+        count_user = GroupMembership.objects.filter(group__product=obj).count()
+        for group in groups:
+            if group.max_users != 0:
+                fill_percentage = count_user / group.max_users * 100
+                total_fill_percentage += fill_percentage
+        if groups.count() != 0:
+            return total_fill_percentage / groups.count()
+        return 0
+
+    def get_purchase_percentage(self, obj):
+        total_users = User.objects.count()
+        count_user = GroupMembership.objects.filter(group__product=obj).count()
+        if total_users != 0:
+            accesses = count_user
+            return accesses / total_users * 100
+        return 0
 
 
 class LessonSerializer(serializers.ModelSerializer):
@@ -14,50 +56,13 @@ class LessonSerializer(serializers.ModelSerializer):
         fields = ("id", "product", "name", "video_link")
 
 
-class ProductDetailSerializer(serializers.ModelSerializer):
-    num_students = serializers.SerializerMethodField()
-    group_fill_percentage = serializers.SerializerMethodField()
-    purchase_percentage = serializers.SerializerMethodField()
-
+class GroupSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Product
-        fields = (
-            "id",
-            "creator",
-            "name",
-            "start_date",
-            "cost",
-            "num_students",
-            "group_fill_percentage",
-            "purchase_percentage",
-        )
+        model = Group
+        fields = ("id", "product", "name", "min_users", "max_users")
 
-    def get_num_students(self, obj):
-        # Получаем количество учеников занимающихся на продукте
-        return ProductAccess.objects.filter(product=obj).count()
 
-    def get_group_fill_percentage(self, obj):
-        # Рассчитываем процент заполненности группы для каждого продукта
-        groups = Group.objects.filter(product=obj)
-        total_percentage = 0
-        total_groups = 0
-        for group in groups:
-            fill_percentage = (
-                group.groupmembership_set.count() / group.max_users
-            ) * 100
-            total_percentage += fill_percentage
-            total_groups += 1
-        if total_groups == 0:
-            return 0
-        else:
-            return total_percentage / total_groups
-
-    def get_purchase_percentage(self, obj):
-        # Рассчитываем процент приобретения продукта
-        total_users = User.objects.count()
-        if total_users == 0:
-            return 0
-        else:
-            return (
-                ProductAccess.objects.filter(product=obj).count() / total_users
-            ) * 100
+class GroupMembershipSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GroupMembership
+        fields = ("id", "group", "user")
