@@ -34,3 +34,6 @@ class Group(models.Model):
 class GroupMembership(models.Model):
     group = models.ForeignKey(Group, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.user} in {self.group}"
